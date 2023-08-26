@@ -451,6 +451,9 @@ progress 12 "Installing the rocketpool cli and daemon..."
 { cp rocketpool-cli/rocketpool-cli-linux-amd64 ~/bin/rocketpool || fail "Could not copy rocketpool-cli to ~/bin"; } >&2
 { chmod +x ~/bin/rocketpool || fail "Could not set executable permissions on rocketpool-cli"; } >&2
 
+echo ""
+echo "Rocketpool is now installed. Please configure your node with: rocketpool service config"
+
 }
 install "$@"
 
