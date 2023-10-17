@@ -30,7 +30,7 @@ import (
 // Implementation for tree generator ruleset v5
 type treeGeneratorImpl_v5 struct {
 	networkState           *state.NetworkState
-	rewardsFile            *RewardsFile
+	rewardsFile            *RewardsFile_v1
 	elSnapshotHeader       *types.Header
 	log                    *log.ColorLogger
 	logPrefix              string
@@ -60,33 +60,35 @@ type treeGeneratorImpl_v5 struct {
 func newTreeGeneratorImpl_v5(log *log.ColorLogger, logPrefix string, index uint64, startTime time.Time, endTime time.Time, consensusBlock uint64, elSnapshotHeader *types.Header, intervalsPassed uint64, state *state.NetworkState) *treeGeneratorImpl_v5 {
 	return &treeGeneratorImpl_v5{
 		zero: big.NewInt(0),
-		rewardsFile: &RewardsFile{
-			RewardsFileVersion: 1,
-			RulesetVersion:     5,
-			Index:              index,
-			StartTime:          startTime.UTC(),
-			EndTime:            endTime.UTC(),
-			ConsensusEndBlock:  consensusBlock,
-			ExecutionEndBlock:  elSnapshotHeader.Number.Uint64(),
-			IntervalsPassed:    intervalsPassed,
-			TotalRewards: &TotalRewards{
-				ProtocolDaoRpl:               NewQuotedBigInt(0),
-				TotalCollateralRpl:           NewQuotedBigInt(0),
-				TotalOracleDaoRpl:            NewQuotedBigInt(0),
-				TotalSmoothingPoolEth:        NewQuotedBigInt(0),
-				PoolStakerSmoothingPoolEth:   NewQuotedBigInt(0),
-				NodeOperatorSmoothingPoolEth: NewQuotedBigInt(0),
-			},
-			NetworkRewards:      map[uint64]*NetworkRewardsInfo{},
-			NodeRewards:         map[common.Address]*NodeRewardsInfo{},
-			InvalidNetworkNodes: map[common.Address]uint64{},
-			MinipoolPerformanceFile: MinipoolPerformanceFile{
+		rewardsFile: &RewardsFile_v1{
+			RewardsFileHeader: &RewardsFileHeader{
+				RewardsFileVersion:  1,
+				RulesetVersion:      5,
 				Index:               index,
 				StartTime:           startTime.UTC(),
 				EndTime:             endTime.UTC(),
 				ConsensusEndBlock:   consensusBlock,
 				ExecutionEndBlock:   elSnapshotHeader.Number.Uint64(),
-				MinipoolPerformance: map[common.Address]*SmoothingPoolMinipoolPerformance{},
+				IntervalsPassed:     intervalsPassed,
+				InvalidNetworkNodes: map[common.Address]uint64{},
+				TotalRewards: &TotalRewards{
+					ProtocolDaoRpl:               NewQuotedBigInt(0),
+					TotalCollateralRpl:           NewQuotedBigInt(0),
+					TotalOracleDaoRpl:            NewQuotedBigInt(0),
+					TotalSmoothingPoolEth:        NewQuotedBigInt(0),
+					PoolStakerSmoothingPoolEth:   NewQuotedBigInt(0),
+					NodeOperatorSmoothingPoolEth: NewQuotedBigInt(0),
+				},
+				NetworkRewards: map[uint64]*NetworkRewardsInfo{},
+			},
+			NodeRewards: map[common.Address]*NodeRewardsInfo_v1{},
+			MinipoolPerformanceFile: MinipoolPerformanceFile_v1{
+				Index:               index,
+				StartTime:           startTime.UTC(),
+				EndTime:             endTime.UTC(),
+				ConsensusEndBlock:   consensusBlock,
+				ExecutionEndBlock:   elSnapshotHeader.Number.Uint64(),
+				MinipoolPerformance: map[common.Address]*SmoothingPoolMinipoolPerformance_v1{},
 			},
 		},
 		validatorStatusMap:    map[rptypes.ValidatorPubkey]beacon.ValidatorStatus{},
@@ -104,7 +106,7 @@ func (r *treeGeneratorImpl_v5) getRulesetVersion() uint64 {
 	return r.rewardsFile.RulesetVersion
 }
 
-func (r *treeGeneratorImpl_v5) generateTree(rp *rocketpool.RocketPool, cfg *config.RocketPoolConfig, bc beacon.Client) (*RewardsFile, error) {
+func (r *treeGeneratorImpl_v5) generateTree(rp *rocketpool.RocketPool, cfg *config.RocketPoolConfig, bc beacon.Client) (IRewardsFile, error) {
 
 	r.log.Printlnf("%s Generating tree using Ruleset v%d.", r.logPrefix, r.rewardsFile.RulesetVersion)
 
@@ -316,7 +318,7 @@ func (r *treeGeneratorImpl_v5) calculateRplRewards() error {
 	r.log.Printlnf("%s Approx. total collateral RPL rewards: %s (%.3f)", r.logPrefix, totalNodeRewards.String(), eth.WeiToEth(totalNodeRewards))
 
 	// Calculate the effective stake of each node, scaling by their participation in this interval
-	trueNodeEffectiveStakes, totalNodeEffectiveStake, err := r.networkState.CalculateTrueEffectiveStakes(true)
+	trueNodeEffectiveStakes, totalNodeEffectiveStake, err := r.networkState.CalculateTrueEffectiveStakes(true, false)
 	if err != nil {
 		return fmt.Errorf("error calculating effective RPL stakes: %w", err)
 	}
@@ -352,7 +354,7 @@ func (r *treeGeneratorImpl_v5) calculateRplRewards() error {
 					network = 0
 				}
 
-				rewardsForNode = &NodeRewardsInfo{
+				rewardsForNode = &NodeRewardsInfo_v1{
 					RewardNetwork:    network,
 					CollateralRpl:    NewQuotedBigInt(0),
 					OracleDaoRpl:     NewQuotedBigInt(0),
@@ -445,7 +447,7 @@ func (r *treeGeneratorImpl_v5) calculateRplRewards() error {
 				network = 0
 			}
 
-			rewardsForNode = &NodeRewardsInfo{
+			rewardsForNode = &NodeRewardsInfo_v1{
 				RewardNetwork:    network,
 				CollateralRpl:    NewQuotedBigInt(0),
 				OracleDaoRpl:     NewQuotedBigInt(0),
@@ -583,7 +585,7 @@ func (r *treeGeneratorImpl_v5) calculateEthRewards(checkBeaconPerformance bool) 
 					minipoolScore.Add(minipoolScore, fee)          // Total = fee + (bond/32)(1 - fee)
 
 					// Add it to the minipool's score and the total score
-					minipool.AttestationScore.Add(minipool.AttestationScore, minipoolScore)
+					minipool.AttestationScore.Add(&minipool.AttestationScore.Int, minipoolScore)
 					r.totalAttestationScore.Add(r.totalAttestationScore, minipoolScore)
 
 					r.successfulAttestations++
@@ -613,7 +615,7 @@ func (r *treeGeneratorImpl_v5) calculateEthRewards(checkBeaconPerformance bool) 
 					network = 0
 				}
 
-				rewardsForNode = &NodeRewardsInfo{
+				rewardsForNode = &NodeRewardsInfo_v1{
 					RewardNetwork:    network,
 					CollateralRpl:    NewQuotedBigInt(0),
 					OracleDaoRpl:     NewQuotedBigInt(0),
@@ -628,7 +630,7 @@ func (r *treeGeneratorImpl_v5) calculateEthRewards(checkBeaconPerformance bool) 
 			for _, minipoolInfo := range nodeInfo.Minipools {
 				successfulAttestations := uint64(len(minipoolInfo.CompletedAttestations))
 				missingAttestations := uint64(len(minipoolInfo.MissingAttestationSlots))
-				performance := &SmoothingPoolMinipoolPerformance{
+				performance := &SmoothingPoolMinipoolPerformance_v1{
 					Pubkey:                  minipoolInfo.ValidatorPubkey.Hex(),
 					SuccessfulAttestations:  successfulAttestations,
 					MissedAttestations:      missingAttestations,
@@ -695,7 +697,7 @@ func (r *treeGeneratorImpl_v5) calculateNodeRewards() (*big.Int, *big.Int, error
 				}
 
 				minipoolEth := big.NewInt(0).Set(totalNodeOpShare)
-				minipoolEth.Mul(minipoolEth, minipool.AttestationScore)
+				minipoolEth.Mul(minipoolEth, &minipool.AttestationScore.Int)
 				minipoolEth.Div(minipoolEth, r.totalAttestationScore)
 				minipool.MinipoolShare = minipoolEth
 				nodeInfo.SmoothingPoolEth.Add(nodeInfo.SmoothingPoolEth, minipoolEth)
@@ -875,7 +877,7 @@ func (r *treeGeneratorImpl_v5) checkDutiesForSlot(attestations []beacon.Attestat
 						minipoolScore.Add(minipoolScore, fee)          // Total = fee + (bond/32)(1 - fee)
 
 						// Add it to the minipool's score and the total score
-						validator.AttestationScore.Add(validator.AttestationScore, minipoolScore)
+						validator.AttestationScore.Add(&validator.AttestationScore.Int, minipoolScore)
 						r.totalAttestationScore.Add(r.totalAttestationScore, minipoolScore)
 						r.successfulAttestations++
 					}
@@ -1065,7 +1067,7 @@ func (r *treeGeneratorImpl_v5) getSmoothingPoolNodeDetails() error {
 							MissingAttestationSlots: map[uint64]bool{},
 							CompletedAttestations:   map[uint64]bool{},
 							WasActive:               true,
-							AttestationScore:        big.NewInt(0),
+							AttestationScore:        NewQuotedBigInt(0),
 						})
 					}
 				}

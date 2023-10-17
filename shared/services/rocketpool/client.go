@@ -154,7 +154,7 @@ func checkClientStatus(rp *Client) (bool, error) {
 	}
 
 	// Primary isn't ready and fallback isn't enabled
-	fmt.Printf("Error: primary client pair isn't ready and fallback clients aren't enabled.\n\tPrimary EC status: %s\n\tPrimary CC status: %s", primaryEcStatus, primaryBcStatus)
+	fmt.Printf("Error: primary client pair isn't ready and fallback clients aren't enabled.\n\tPrimary EC status: %s\n\tPrimary CC status: %s\n", primaryEcStatus, primaryBcStatus)
 	return false, nil
 }
 
@@ -330,12 +330,11 @@ func (c *Client) UpdatePrometheusConfiguration(settings map[string]string) error
 }
 
 // Install the Rocket Pool service
-func (c *Client) InstallService(verbose, noDeps bool, network, version, path string, dataPath string) error {
+func (c *Client) InstallService(verbose, noDeps bool, version, path string, dataPath string) error {
 
 	// Get installation script flags
 	flags := []string{
-		"-n", fmt.Sprintf("%s", shellescape.Quote(network)),
-		"-v", fmt.Sprintf("%s", shellescape.Quote(version)),
+		"-v", shellescape.Quote(version),
 	}
 	if path != "" {
 		flags = append(flags, fmt.Sprintf("-p %s", shellescape.Quote(path)))
